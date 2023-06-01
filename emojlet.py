@@ -11,7 +11,7 @@ if len(sys.argv) < 2:
 
 ecabulary = {}
 filenames = os.listdir(sys.argv[1])
-tile_size = (18, 18)  # TODO: make configurable?
+tile_size = (2,2)  # TODO: make configurable?
 
 for f in sorted(filenames):
     if not f.endswith(".png"):
@@ -28,7 +28,7 @@ for f in sorted(filenames):
       print(e)
       print(f)
     
-print(f"tile files: {len(filenames}")
+print(f"tile files: {len(filenames)}")
 print(f"emoji tiles loaded: {len(ecabulary)}")
 
 def best_emoji(img_patch):
@@ -54,7 +54,7 @@ def best_emoji(img_patch):
       best_yet = k
   return best_yet
 
-patch_size = (36, 36)  # TODO make configurable
+patch_size = (60, 63)  # TODO make configurable
 
 if len(sys.argv) == 3:
     img_filename = sys.argv[2]
