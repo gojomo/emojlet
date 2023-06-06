@@ -102,6 +102,9 @@ def best_emoji(img_patch):
       best_yet = k
   return (best_yet, best_score)
 
+def imequal(im1, im2):
+  return im1.shape == im2.shape and not cv2.norm(im1, im2, cv2.NORM_L1)
+
 img_filename = args.in_image
 in_img = cv2.imread(img_filename, cv2.IMREAD_UNCHANGED)  # TODO: support transparency, config bg color
 print(f"{img_filename}: {in_img.shape}")
@@ -113,12 +116,19 @@ grid_glyphs = emoji_grid[0]*emoji_grid[1]
 print(f"emoji grid: {emoji_grid} ({grid_glyphs} glyphs, or {grid_glyphs+emoji_grid[1]} with newlines")
 
 # TODO: use multiple threads
+last_patch = None
+e, score = None, None
+reuses = 0
 for x in range(0, in_img.shape[0], patch_size[0]):
   for y in range(0, in_img.shape[1], patch_size[1]):
-    patch = in_img[x:x+patch_size[0], y:y+patch_size[1]]
-    # TODO: notice identical patch, reuse last emoji
-    patch = cv2.resize(patch, tile_size)
-    e, score = best_emoji(patch)
+    raw_patch = in_img[x:x+patch_size[0], y:y+patch_size[1]]
+    if last_patch is not None and imequal(last_patch, raw_patch):
+      reuses += 1  # retain prior e, score
+    else:
+      tilesized_patch = cv2.resize(raw_patch, tile_size)
+      e, score = best_emoji(tilesized_patch)
     # print(f"{x,y}: {e} @ {score} {type(e)} {len(e)} {ecabulary[e][0]}")
     sys.stdout.write(e)
+    last_patch = raw_patch
   print('')
+print(f"reuses: {reuses}")
