@@ -52,6 +52,7 @@ class ImSimTiler:
     self.last_best = None
     self.reuses = 0
     self.ties = 0
+    self.max_way_tie = 0
 
     # similarity measures
     # rmse lower better, 0.0 identical
@@ -157,10 +158,12 @@ class ImSimTiler:
     self.last_best = (best_yet, best_score)
     if ties_for_best:
       self.ties += 1
+      self.max_way_tie = max(self.max_way_tie, ties_for_best)
     return self.last_best
 
   def end(self):
     """final reporting/cleanup"""
     print(f"reuses: {self.reuses}")
     print(f"ties: {self.ties}")
+    print(f"max_way_tie: {self.max_way_tie}")
 
