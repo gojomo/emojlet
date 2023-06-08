@@ -11,7 +11,15 @@ import os
 from math import ceil
 from collections import namedtuple
 
-Dims = namedtuple('Dims', ['w', 'h'])
+Dims = namedtuple('Dims', ['w', 'h'])  # width, height
+
+Emojus = namedtuple('Emojus', [
+                                'cseq',     # characters
+                                'basename', # core name
+                                'fullname', # name with modifiers like skin tones
+                                'filename', # source filename
+                                'tile',     # image representation
+                              ])  
 
 def solid_background(foreground, bgcolor):
   """fill any transparent areas of 'foreground' with solid color bgcolor
@@ -37,7 +45,7 @@ def imequal(im1, im2):
 
 
 class ImSimTiler: 
-  def __init__(self, in_image_path, patch_size, tiles_dir, tile_size, background_color=None):
+  def __init__(self, in_image_path, patch_size, tiles_dir, tile_size, precedence, background_color=None):
     self.background_color = background_color
     self.in_image_path = in_image_path
     self.patch_size = patch_size
@@ -45,6 +53,7 @@ class ImSimTiler:
 
     self.tiles_dir = tiles_dir
     self.tile_size = tile_size
+    self.precedence = precedence
     self.read_tiles()
 
     # simple repeated-patch caching
@@ -93,12 +102,12 @@ class ImSimTiler:
   def read_tiles(self):
     """read every PNG in given directory into a usable-for-matching in-memory image tile
 
-       ecabulary is dict mapping (emoji-unicode-sequence -> (filename, cv2-style image))
+       ecabulary is list of Emojus tuples
     """
-    self.ecabulary = {}
+    self.ecabulary = []
 
     filenames = os.listdir(self.tiles_dir)
-    for f in sorted(filenames):
+    for f in filenames:
         if not f.endswith(".png"):
           continue
         try:
@@ -106,29 +115,55 @@ class ImSimTiler:
           undersplits = fname.split('_')
           if len(undersplits) == 2:
             emoji_chars = undersplits[-1]
+            basename = fullname = undersplits[0]
           elif len(undersplits) == 4:
             emoji_chars = undersplits[-2]
+            basename = undersplits[0]
+            fullname = '_'.join(undersplits[0:2])
           else:
-            print(f"ERROR: unparseable filename {f}")
+            print(f"ERROR: unparseable filename {f}; skipping")
             continue
           emoji_zwjseq = ''.join(chr(int(hexstr, 16)) for hexstr in emoji_chars.split("-"))
           if emoji_zwjseq == u'\uFE0F':
+            # should not render, so unneeded for us
             continue
-          if emoji_zwjseq in self.ecabulary:
-            print(f"DUPLICATE: {emoji_zwjseq} {f}")
-            continue
+          #if emoji_zwjseq in self.ecabulary:
+          #  print(f"DUPLICATE: {emoji_zwjseq} {f}")
+          #  continue
           emoji_tile = cv2.imread(os.path.join(self.tiles_dir, f), cv2.IMREAD_UNCHANGED)  # TODO cv.IMREAD_UNCHANGED to save transparency
           if self.background_color:
             emoji_tile = solid_background(emoji_tile, self.background_color)
           if self.working_in_image.shape[2] == 3 and emoji_tile.shape[2] != 3:
             # trim alpha if source image doesn't have it
             emoji_tile = emoji_tile[:,:,0:3]
-          self.ecabulary[emoji_zwjseq] = (f, cv2.resize(emoji_tile, self.tile_size))
+          self.ecabulary.append(Emojus(cseq=emoji_zwjseq, 
+                                       basename=basename, 
+                                       fullname=fullname, 
+                                       filename=f, 
+                                       tile=cv2.resize(emoji_tile, self.tile_size)))
         except Exception as e:
           print(f"{f}: {e}")
     
+    # sort, affecting which earlier tiles win ties
+    if self.precedence == 'alpha':
+      # filename
+      self.ecabulary.sort(key=lambda emojus: emojus.filename)
+    elif self.precedence == 'namelen':
+      # shorter basename, shorter fullname, filename
+      self.ecabulary.sort(key=lambda emojus: (len(emojus.basename), len(emojus.fullname), emojus.filename ))
+    elif self.precedence == 'chars':
+      self.ecabulary.sort(key=lambda emojus: emojus.cseq)
+    elif self.precedence == 'age':
+      # prefer older characters, then lower chars
+      from unicode_age import unicode_age_data
+      self.ecabulary.sort(key=lambda emojus: (unicode_age_data.get(emojus.cseq[0]), float('inf'), emojus.cseq))
+    else: 
+      # treat as int seed for a shuffle
+      import random
+      random.Random(int(self.precedence)).shuffle(self.ecabulary)
+
     print(f"tile files: {len(filenames)}")
-    print(f"emoji tiles loaded: {len(self.ecabulary)}")
+    print(f"emoji tiles loaded: {len(self.ecabulary)} & ordered by {self.precedence}")
 
   
 
@@ -142,16 +177,16 @@ class ImSimTiler:
     tilesized_patch = cv2.resize(img_patch, self.tile_size) 
     best_yet = None
     best_score = None
-    ties_for_best = 0
+    ties_for_best = 1
     # TODO: offer/save-aside top-N matches with scores for later fuzzing/subsetting
-    for k, (f, tile) in self.ecabulary.items():
-      score = self.measure_fn(tilesized_patch, tile)
+    for emojus in self.ecabulary:
+      score = self.measure_fn(tilesized_patch, emojus.tile)
       if score == best_score:
         ties_for_best += 1
       if best_yet == None or self.comp_fn(score , best_score):
-        ties_for_best = 0  # reset for new best
+        ties_for_best = 1  # reset for new best
         best_score = score
-        best_yet = k
+        best_yet = emojus.cseq
     
     # cache & return
     self.last_patch = img_patch

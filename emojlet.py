@@ -19,6 +19,8 @@ parser.add_argument('--tile', dest='tile', help="tile w[,h]", default='18')
 parser.add_argument('--patch', dest='patch', help="patch w[,h]", default='64,78')
 parser.add_argument('--bg', dest='bg_color',
                     help="fill transparent areas with RRGGBB value", default=None)
+parser.add_argument('--precedence', default='alpha',
+                    help="prefer tie emojis by [alpha, chars, namelen, age, SEED]")
 
 args = parser.parse_args()
 
@@ -40,7 +42,7 @@ else:
 print(f"tile_size: {tile_size}")
 print(f"patch_size: {patch_size}")
 
-tiler = ImSimTiler(args.in_image_path, patch_size, args.tiles_dir, tile_size, bgr_bgcolor)
+tiler = ImSimTiler(args.in_image_path, patch_size, args.tiles_dir, tile_size, args.precedence, bgr_bgcolor)
 
 in_img = tiler.working_in_image
 #cv2.imwrite("imtemp.png", in_img)
