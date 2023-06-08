@@ -7,7 +7,8 @@ import os
 import sys
 import argparse
 
-from imsim_tiler import ImSimTiler, Dims
+#from imsim_tiler import ImSimTiler, Dims
+from flip_tiler import FlipTiler, Dims
 
 parser = argparse.ArgumentParser(
   prog="emojlet",
@@ -37,20 +38,21 @@ if args.bg_color:
   rgb_bgcolor = tuple(int(args.bg_color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
   bgr_bgcolor = (rgb_bgcolor[2], rgb_bgcolor[1], rgb_bgcolor[0])
 else:
+  rgb_bgcolor=None
   bgr_bgcolor=None
 
 print(f"tile_size: {tile_size}")
 print(f"patch_size: {patch_size}")
 
-tiler = ImSimTiler(args.in_image_path, patch_size, args.tiles_dir, tile_size, args.precedence, bgr_bgcolor)
+tiler = FlipTiler(args.in_image_path, patch_size, args.tiles_dir, tile_size, args.precedence, rgb_bgcolor)
 
 in_img = tiler.working_in_image
 #cv2.imwrite("imtemp.png", in_img)
 
 # TODO: use multiple threads
-for y in range(0, in_img.shape[0], patch_size.h):
-  for x in range(0, in_img.shape[1], patch_size.w):
-    raw_patch = in_img[y:y+patch_size.h, x:x+patch_size.w]
+for y in range(0, in_img.shape[1], tile_size.h):
+  for x in range(0, in_img.shape[2], tile_size.w):
+    raw_patch = in_img[:,y:y+tile_size.h, x:x+tile_size.w]
     e, score = tiler.best_emoji(raw_patch)
     # print(f"{x,y}: {e} @ {score} {type(e)} {len(e)} {ecabulary[e][0]}")
     sys.stdout.write(e)
