@@ -1,0 +1,29 @@
+usability
+- specify dims by tilewidth, tileheight, tiledims, or maxtiles
+- multithreading
+- user mode switching, unified paths, report tiler used
+- save results for easy re-renders (fuzz, etc)
+- light profiling for any easy wins?
+
+output quality
+- separate backgrounds for source, tiles
+- fuzz/variety-boosting:
+  - penalize overrepresented tiles (replacing some proportion w/ next-best/nearest alt)
+- exclude skin-tone modifiers?
+- experiment with overbleed matching (measure flip-diff in source img surroundings) 
+
+
+fun
+- limit emojis by unicode version
+- exclude emojis (by user list or some predefined classes)
+- limit to emojis (by user list or predefined classes)
+- animated rendering?
+  - check one emoji against all spots (rather than every emoji against spot-at-time)
+  - cursor-addressing to roll in place as best improves
+- histogram/graphic-equalizer UI
+  - rise/low individual emoji weights
+  - clip by unicode version, etc
+
+distribution
+- attribute flip code
+- README/docs
